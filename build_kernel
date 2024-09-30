@@ -10,7 +10,7 @@ download_latest_stable(){
 }
 
 install_reqs(){
-	sudo apt install bc binutils bison dwarves flex gcc git gnupg2 gzip libelf-dev libncurses5-dev libssl-dev make openssl pahole perl-base rsync tar xz-utils -y
+	apt install bc binutils bison dwarves flex gcc git gnupg2 gzip libelf-dev libncurses5-dev libssl-dev make openssl pahole perl-base rsync tar xz-utils -y
 }
 
 compile_kernel(){
@@ -18,15 +18,16 @@ compile_kernel(){
 		printf "No KERNEL_DIR provided.\nExiting...\n"
 		exit 1
 	fi
+	cd $2
 	cp /boot/config-$(uname -r) .config
 	make olddefconfig
 	./scripts/config --file .config --disable MODULE_SIG # unsigned modules for Debian derivatives
 	./scripts/config --file .config --set-str LOCALVERSION "-datcuandrei"
 	make -j$(nproc) 2>&1 | tee log
-	sudo make modules_install -j$(nproc)
-	sudo make headers_install
-	sudo make install
-	sudo grub-mkconfig -o /boot/grub/grub.cfg
+	make modules_install -j$(nproc)
+	make headers_install
+	make install
+	grub-mkconfig -o /boot/grub/grub.cfg
 }
 
 case "$1" in
