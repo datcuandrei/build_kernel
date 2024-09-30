@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+
+if [ "$EUID" -ne 0 ]; then
+	printf "Cannot run as unprivileged user!\nPlease rerun the script as root.\n"
+	exit 1
+fi
+
+download_latest_stable(){
+	wget "$(curl -sS https://www.kernel.org/ | head -n $(echo $[1+$(curl -sS https://www.kernel.org/ | grep -n "latest_link" | cut -d ':' -f1 | xargs)]) | tail -n 1 | cut -d "\"" -f2)"
+}
+
+install_reqs(){
+	sudo apt install bc binutils bison dwarves flex gcc git gnupg2 gzip libelf-dev libncurses5-dev libssl-dev make openssl pahole perl-base rsync tar xz-utils -y
+}
+
+compile_kernel(){
+	if [[ -z "$2" ]]; then
+		printf "No KERNEL_DIR provided.\nExiting...\n"
+		exit 1
+	fi
+	cp /boot/config-$(uname -r) .config
+	make olddefconfig
+	./scripts/config --file .config --disable MODULE_SIG # unsigned modules for Debian derivatives
+	./scripts/config --file .config --set-str LOCALVERSION "-datcuandrei"
+	make -j$(nproc) 2>&1 | tee log
+	sudo make modules_install -j$(nproc)
+	sudo make headers_install
+	sudo make install
+	sudo grub-mkconfig -o /boot/grub/grub.cfg
+}
+
+case "$1" in
+	download)
+		download_latest_stable
+		;;
+	prepare)
+		install_reqs
+		;;
+	compile)
+		compile_kernel
+		;;
+	*)
+		printf "$0 - Quick script to download and compile the latest stable kernel for @datcuandrei.\n\nUsage: $0 {download|prepare|compile [KERNEL_DIR]}\nMust run as privileged user!\n\nCommands:\n\t- download: Downloads the latest stable release\n\t- prepare: Installs packages required in order to build and compile the kernel\n\t- compile: Compiles the kernel provided in KERNEL_DIR using the current kernel's configuration using all available threads. Also installs modules&headers and generates GRUB config.\n"
+		;;
+esac
